@@ -1,0 +1,50 @@
+#!/bin/bash
+
+if [ "$(whoami)" != "root" ] ; then
+	echo Run as root!
+	exit
+fi
+
+CWD=$(pwd)
+CONTAINER_NAME=$(basename $0 .lxc)
+
+function start() {
+	cat << EOF > ${CWD}/${CONTAINER_NAME}/rootfs/etc/fstab
+lxcpts ${CWD}/${CONTAINER_NAME}/rootfs/dev/pts devpts defaults,newinstance 0 0
+none ${CWD}/${CONTAINER_NAME}/rootfs/proc    proc   defaults 0 0
+none ${CWD}/${CONTAINER_NAME}/rootfs/sys     sysfs  defaults 0 0
+none /dev/shm tmpfs  defaults 0 0
+EOF
+
+	lxc-start -n ${CONTAINER_NAME} \
+		-p ${CWD}/${CONTAINER_NAME}.pid \
+		-P ${CWD}/${CONTAINER_NAME}/rootfs \
+		-f ${CWD}/${CONTAINER_NAME}/config \
+		-o ${CWD}/${CONTAINER_NAME}.log \
+		-l DEBUG \
+		-s lxc.mount=${CWD}/${CONTAINER_NAME}/rootfs/etc/fstab \
+		-s lxc.rootfs=${CWD}/${CONTAINER_NAME}/rootfs \
+		-d
+}
+
+function console() {
+	lxc-console -n ${CONTAINER_NAME} \
+		-P ${CWD}/${CONTAINER_NAME}/rootfs
+}
+
+function stop() {
+	lxc-stop -n ${CONTAINER_NAME} \
+		-P ${CWD}/${CONTAINER_NAME}/rootfs
+}
+
+case $1 in
+	console)
+		console
+		;;
+	stop)
+		stop
+		;;
+	*)
+		start
+		;;
+esac
